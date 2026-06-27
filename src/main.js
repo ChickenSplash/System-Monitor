@@ -86,6 +86,10 @@ function externalTooltip({ chart, tooltip }) {
   el.style.top = chart.canvas.offsetTop + tooltip.caretY + "px";
 }
 
+// How many labels the x-axis shows. Also the minute threshold past which the
+// gap between labels exceeds a minute, so seconds in the time label are dropped.
+const X_AXIS_LABELS = 8;
+
 // Created once; refresh() swaps in new data each tick. Default Chart.js styling.
 const memChart = new Chart(document.getElementById("mem-chart"), {
   type: "line",
@@ -103,7 +107,7 @@ const memChart = new Chart(document.getElementById("mem-chart"), {
       x: {
         ticks: {
           autoSkip: true,
-          maxTicksLimit: 8, // thin the labels so the axis isn't cramped
+          maxTicksLimit: X_AXIS_LABELS, // thin the labels so the axis isn't cramped
           maxRotation: 0, // keep them horizontal
         },
       },
@@ -114,12 +118,22 @@ const memChart = new Chart(document.getElementById("mem-chart"), {
 
 // Feed a fresh stats reading into the memory chart: y = GB (pinned to total RAM
 // so usage reads to scale), x = two lines, 24h clock time over "x ago".
-/** @param {SystemStats} stats */
-function updateChart(stats) {
+/**
+ * @param {SystemStats} stats
+ * @param {number} minutes the current history window
+ */
+function updateChart(stats, minutes) {
   plotted = stats.mem_history; // keep raw samples for the tooltip
   const now = Date.now();
+  // Labels are minutes apart once the window exceeds the label count, so the
+  // seconds are just noise — show HH:MM instead of HH:MM:SS.
+  /** @type {Intl.DateTimeFormatOptions} */
+  const timeOpts =
+    minutes > X_AXIS_LABELS
+      ? { hour12: false, hour: "2-digit", minute: "2-digit" }
+      : { hour12: false };
   memChart.data.labels = stats.mem_history.map((s) => [
-    new Date(s.timestamp).toLocaleTimeString([], { hour12: false }),
+    new Date(s.timestamp).toLocaleTimeString([], timeOpts),
     agoLabel(now - s.timestamp),
   ]);
   // null for offline buckets — Chart.js renders these as a gap in the line.
@@ -137,7 +151,7 @@ async function refresh() {
       await invoke("get_stats", { minutes })
     );
 
-    updateChart(stats);
+    updateChart(stats, minutes);
 
     const cpu = stats.cpu_usage.toFixed(1);
     document.getElementById("cpu-usage").textContent = cpu;
