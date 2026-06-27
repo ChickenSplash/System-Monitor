@@ -1,6 +1,7 @@
 // Rust backend: reads native system stats and exposes them to the JS frontend
 // as Tauri commands (invoke("get_stats") on the JS side).
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::thread;
 use rusqlite::{params, Connection};
@@ -28,9 +29,9 @@ struct SystemStats {
 
 #[derive(Serialize)]
 struct MemSample {
-    ts: i64,       // UNIX timestamp in milliseconds (bucket average)
-    mem_used: u64, // bytes (bucket average)
-    samples: u64,  // raw rows averaged into this bucket
+    timestamp: i64,        // UNIX timestamp in milliseconds (bucket average)
+    mem_used: Option<u64>, // bytes (bucket average); None for an offline gap
+    samples: u64,          // raw rows averaged into this bucket (0 when offline)
 }
 
 // `(async)` runs this on Tauri's thread pool, not the main/UI thread — the
@@ -75,7 +76,7 @@ fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
         .as_millis() as i64;
     
     db.execute(
-        "INSERT INTO mem_samples (ts, mem_used, mem_total) VALUES (?1, ?2, ?3)",
+        "INSERT INTO mem_samples (timestamp, mem_used, mem_total) VALUES (?1, ?2, ?3)",
         params![now_ms, mem_used as i64, mem_total as i64],
     ).unwrap();
 
@@ -92,25 +93,39 @@ fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
 
     let mut stmt = db
         .prepare(
-            "SELECT CAST(AVG(ts) AS INTEGER), CAST(AVG(mem_used) AS INTEGER), COUNT(*)
+            "SELECT timestamp / ?2, CAST(AVG(timestamp) AS INTEGER), CAST(AVG(mem_used) AS INTEGER), COUNT(*)
              FROM mem_samples
-             WHERE ts >= ?1
-             GROUP BY ts / ?2
-             ORDER BY ts ASC",
+             WHERE timestamp >= ?1
+             GROUP BY timestamp / ?2",
         )
         .unwrap();
 
-    let mem_history = stmt
+    // bucket index -> (avg timestamp, avg mem_used, raw row count)
+    let buckets: HashMap<i64, (i64, i64, i64)> = stmt
         .query_map(params![cutoff, bucket_ms], |row| {
-            Ok(MemSample {
-                ts: row.get(0)?,
-                mem_used: row.get::<_, i64>(1)? as u64,
-                samples: row.get::<_, i64>(2)? as u64,
-            })
+            Ok((row.get(0)?, (row.get(1)?, row.get(2)?, row.get(3)?)))
         })
         .unwrap()
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<HashMap<_, _>, _>>()
         .unwrap();
+
+    // Walk every bucket across the window, not just the populated ones, so a
+    // window wider than the recorded data still fills all the columns. Empty
+    // buckets become "offline" gaps (mem_used = None) instead of being dropped.
+    let mem_history: Vec<MemSample> = (cutoff / bucket_ms..=now_ms / bucket_ms)
+        .map(|bucket| match buckets.get(&bucket) {
+            Some(&(timestamp, mem, count)) => MemSample {
+                timestamp,
+                mem_used: Some(mem as u64),
+                samples: count as u64,
+            },
+            None => MemSample {
+                timestamp: bucket * bucket_ms + bucket_ms / 2, // bucket midpoint
+                mem_used: None,
+                samples: 0,
+            },
+        })
+        .collect();
 
     SystemStats { cpu_usage, cpu_temp, mem_used, mem_total, mem_history }
 }
@@ -129,7 +144,7 @@ pub fn run() {
 
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS mem_samples (
-                    ts        INTEGER NOT NULL,
+                    timestamp INTEGER NOT NULL,
                     mem_used  INTEGER NOT NULL,
                     mem_total INTEGER NOT NULL
                 )",

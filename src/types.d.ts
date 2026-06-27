@@ -5,10 +5,10 @@
 /** One downsampled bucket of memory readings from the SQLite mem_samples table. */
 interface MemSample {
   /** UNIX timestamp, milliseconds (bucket average) */
-  ts: number;
-  /** bytes (bucket average) */
-  mem_used: number;
-  /** raw rows averaged into this bucket */
+  timestamp: number;
+  /** bytes (bucket average); null for an offline gap with no data */
+  mem_used: number | null;
+  /** raw rows averaged into this bucket (0 when offline) */
   samples: number;
 }
 

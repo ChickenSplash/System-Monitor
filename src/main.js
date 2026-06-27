@@ -18,6 +18,14 @@ function agoLabel(ms) {
   return s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago`;
 }
 
+// Elapsed time as a human-friendly "x minutes ago" string for the tooltip.
+/** @param {number} ms milliseconds elapsed */
+function friendlyAgo(ms) {
+  const mins = Math.round(ms / 60_000);
+  if (mins < 1) return "just now";
+  return mins === 1 ? "1 minute ago" : `${mins} minutes ago`;
+}
+
 // The samples currently plotted, kept so the tooltip can read the full
 // timestamp and raw byte value (the chart itself only stores GB to 1dp).
 /** @type {MemSample[]} */
@@ -49,7 +57,7 @@ function externalTooltip({ chart, tooltip }) {
   const point = tooltip.dataPoints && tooltip.dataPoints[0];
   if (point) {
     const sample = plotted[point.dataIndex];
-    const date = new Date(sample.ts);
+    const date = new Date(sample.timestamp);
     const dateStr = date.toLocaleDateString("en-GB", {
       weekday: "long",
       day: "numeric",
@@ -57,13 +65,19 @@ function externalTooltip({ chart, tooltip }) {
       year: "numeric",
     }); // e.g. "Saturday 27 June 2026"
     const timeStr = date.toLocaleTimeString("en-GB", { hour12: false });
-    const gb = (sample.mem_used / 1024 ** 3).toFixed(2);
+
+    // Offline buckets (no data recorded in that slot) carry mem_used === null.
+    const body =
+      sample.mem_used === null
+        ? `<div class="tt-mem">Offline</div>`
+        : `<div class="tt-mem">Memory Used: ${(sample.mem_used / 1024 ** 3).toFixed(2)} GB</div>` +
+          `<div class="tt-samples">Samples: ${sample.samples}</div>`;
 
     el.innerHTML =
       `<div class="tt-date">${dateStr}</div>` +
       `<div class="tt-time">${timeStr}</div>` +
-      `<div class="tt-mem">Memory Used: ${gb} GB</div>` +
-      `<div class="tt-samples">Samples: ${sample.samples}</div>`;
+      `<div class="tt-ago">${friendlyAgo(Date.now() - sample.timestamp)}</div>` +
+      body;
   }
 
   // Position relative to the canvas (its parent card is position: relative).
@@ -80,6 +94,7 @@ const memChart = new Chart(document.getElementById("mem-chart"), {
     datasets: [{ label: "Memory used (GB)", data: [] }],
   },
   options: {
+    animation: false, // no transitions; the chart re-renders on every poll
     interaction: { mode: "index", intersect: false }, // hover anywhere on the x
     plugins: {
       tooltip: { enabled: false, external: externalTooltip }, // use our DOM one
@@ -92,6 +107,7 @@ const memChart = new Chart(document.getElementById("mem-chart"), {
           maxRotation: 0, // keep them horizontal
         },
       },
+      y: { min: 0 }, // always scale from 0; max is set to total RAM each tick
     },
   },
 });
@@ -103,11 +119,12 @@ function updateChart(stats) {
   plotted = stats.mem_history; // keep raw samples for the tooltip
   const now = Date.now();
   memChart.data.labels = stats.mem_history.map((s) => [
-    new Date(s.ts).toLocaleTimeString([], { hour12: false }),
-    agoLabel(now - s.ts),
+    new Date(s.timestamp).toLocaleTimeString([], { hour12: false }),
+    agoLabel(now - s.timestamp),
   ]);
+  // null for offline buckets — Chart.js renders these as a gap in the line.
   memChart.data.datasets[0].data = stats.mem_history.map((s) =>
-    Number(bytesToGB(s.mem_used))
+    s.mem_used === null ? null : Number(bytesToGB(s.mem_used))
   );
   memChart.options.scales.y.max = Number(bytesToGB(stats.mem_total));
   memChart.update();
