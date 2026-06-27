@@ -87,7 +87,7 @@ fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
     // re-rendering them all every poll makes the chart lag. We slice the window
     // into time buckets and average each, so the point count stays bounded no
     // matter how large the window or how dense the data.
-    const MAX_POINTS: i64 = 300;
+    const MAX_POINTS: i64 = 60;
     let bucket_ms = (window_ms / MAX_POINTS).max(1);
 
     let mut stmt = db
