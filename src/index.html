@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Monitor</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>System Monitor</h1>
+
+      <!-- Each card shows one metric; JS fills in the numbers. -->
+      <section class="card">
+        <h2>CPU Usage</h2>
+        <div class="value"><span id="cpu-usage">--</span>%</div>
+        <div class="bar"><div id="cpu-bar" class="bar-fill"></div></div>
+      </section>
+
+      <section class="card">
+        <h2>CPU Temperature</h2>
+        <div class="value"><span id="cpu-temp">--</span> °C</div>
+      </section>
+
+      <section class="card">
+        <h2>Memory</h2>
+        <div class="value">
+          <span id="mem-used">--</span> / <span id="mem-total">--</span> GB
+        </div>
+        <div class="bar"><div id="mem-bar" class="bar-fill"></div></div>
+      </section>
+    </main>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

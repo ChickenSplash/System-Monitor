@@ -1,0 +1,18 @@
+:root {
+  --bg: #1a1b26;
+  --card: #24283b;
+  --text: #c0caf5;
+  --accent: #7aa2f7;
+  font-family: system-ui, sans-serif;
+}
+body { margin: 0; background: var(--bg); color: var(--text); }
+.container { max-width: 420px; margin: 0 auto; padding: 2rem 1.5rem; }
+h1 { font-size: 1.4rem; text-align: center; margin-bottom: 1.5rem; }
+.card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.card h2 { font-size: .85rem; font-weight: 500; text-transform: uppercase;
+  letter-spacing: .05em; opacity: .7; margin: 0 0 .5rem; }
+.value { font-size: 1.8rem; font-weight: 600; }
+.bar { height: 8px; background: rgba(255,255,255,.08); border-radius: 4px;
+  margin-top: .75rem; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: var(--accent);
+  border-radius: 4px; transition: width .3s ease; }
