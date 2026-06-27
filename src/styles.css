@@ -49,3 +49,4 @@ h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
 }
 .chart-tooltip .tt-time { opacity: .6; }
 .chart-tooltip .tt-mem { margin-top: .25rem; font-weight: 600; color: var(--accent); }
+.chart-tooltip .tt-samples { opacity: .6; }

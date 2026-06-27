@@ -62,7 +62,8 @@ function externalTooltip({ chart, tooltip }) {
     el.innerHTML =
       `<div class="tt-date">${dateStr}</div>` +
       `<div class="tt-time">${timeStr}</div>` +
-      `<div class="tt-mem">Memory Used: ${gb} GB</div>`;
+      `<div class="tt-mem">Memory Used: ${gb} GB</div>` +
+      `<div class="tt-samples">Samples: ${sample.samples}</div>`;
   }
 
   // Position relative to the canvas (its parent card is position: relative).

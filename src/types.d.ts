@@ -2,12 +2,14 @@
 // the top of main.js, the editor uses these for type-checking and autocomplete.
 // Nothing here runs — it only describes shapes the code already passes around.
 
-/** One historical memory reading from the SQLite mem_samples table. */
+/** One downsampled bucket of memory readings from the SQLite mem_samples table. */
 interface MemSample {
-  /** UNIX timestamp, milliseconds */
+  /** UNIX timestamp, milliseconds (bucket average) */
   ts: number;
-  /** bytes */
+  /** bytes (bucket average) */
   mem_used: number;
+  /** raw rows averaged into this bucket */
+  samples: number;
 }
 
 /** Returned by the Rust `get_stats` command — mirrors the SystemStats struct. */

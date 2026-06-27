@@ -28,8 +28,9 @@ struct SystemStats {
 
 #[derive(Serialize)]
 struct MemSample {
-    ts: i64,       // UNIX timestamp in milliseconds
-    mem_used: u64, // bytes
+    ts: i64,       // UNIX timestamp in milliseconds (bucket average)
+    mem_used: u64, // bytes (bucket average)
+    samples: u64,  // raw rows averaged into this bucket
 }
 
 // `(async)` runs this on Tauri's thread pool, not the main/UI thread — the
@@ -78,17 +79,33 @@ fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
         params![now_ms, mem_used as i64, mem_total as i64],
     ).unwrap();
 
-    let cutoff = now_ms - (minutes as i64 * 60_000); // last `minutes` minutes
+    let window_ms = minutes as i64 * 60_000;
+    let cutoff = now_ms - window_ms; // last `minutes` minutes
+
+    // Downsample to at most MAX_POINTS evenly-spaced buckets. Without this, a
+    // wide window over densely-recorded data returns thousands of rows, and
+    // re-rendering them all every poll makes the chart lag. We slice the window
+    // into time buckets and average each, so the point count stays bounded no
+    // matter how large the window or how dense the data.
+    const MAX_POINTS: i64 = 300;
+    let bucket_ms = (window_ms / MAX_POINTS).max(1);
 
     let mut stmt = db
-        .prepare("SELECT ts, mem_used FROM mem_samples WHERE ts >= ?1 ORDER BY ts ASC")
+        .prepare(
+            "SELECT CAST(AVG(ts) AS INTEGER), CAST(AVG(mem_used) AS INTEGER), COUNT(*)
+             FROM mem_samples
+             WHERE ts >= ?1
+             GROUP BY ts / ?2
+             ORDER BY ts ASC",
+        )
         .unwrap();
 
     let mem_history = stmt
-        .query_map(params![cutoff], |row| {
+        .query_map(params![cutoff, bucket_ms], |row| {
             Ok(MemSample {
                 ts: row.get(0)?,
                 mem_used: row.get::<_, i64>(1)? as u64,
+                samples: row.get::<_, i64>(2)? as u64,
             })
         })
         .unwrap()
