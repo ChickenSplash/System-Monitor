@@ -10,7 +10,7 @@
     <main class="container">
       <h1>System Monitor</h1>
 
-      <!-- Each card shows one metric; JS fills in the numbers. -->
+      <!-- Cards in a 2x2 grid; main.js fills in the values each tick. -->
       <section class="card">
         <h2>CPU Usage</h2>
         <div class="value"><span id="cpu-usage">--</span>%</div>
@@ -28,9 +28,19 @@
           <span id="mem-used">--</span> / <span id="mem-total">--</span> GB
         </div>
         <div class="bar"><div id="mem-bar" class="bar-fill"></div></div>
+        <canvas id="mem-chart"></canvas>
+      </section>
+
+      <section class="card">
+        <h2>Update Rate</h2>
+        <div class="value">
+          <input id="update-rate" type="number" min="200" value="1000" /> ms
+        </div>
       </section>
     </main>
 
+    <!-- UMD build exposes Chart as a global; main.js reads it like window.__TAURI__. -->
+    <script src="/chart.umd.js"></script>
     <script type="module" src="/main.js"></script>
   </body>
 </html>

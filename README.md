@@ -1,6 +1,9 @@
-# Tauri + Vanilla
+# System Monitor
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Javascript.
+A small desktop system monitor built with Tauri (Rust backend) and vanilla
+HTML/CSS/JS. It polls live CPU usage, CPU temperature, and memory use, charts
+the last 60s of memory history (persisted to SQLite), and lets you set the
+refresh rate from the UI.
 
 ## Recommended IDE Setup
 
