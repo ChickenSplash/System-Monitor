@@ -26,6 +26,25 @@ function friendlyAgo(ms) {
   return mins === 1 ? "1 minute ago" : `${mins} minutes ago`;
 }
 
+// How many labels the x-axis shows. Also the minute threshold past which the
+// gap between labels exceeds a minute, so seconds in the time label are dropped.
+const X_AXIS_LABELS = 8;
+
+// The current history window, kept module-scoped so both the x-axis labels and
+// the tooltip apply the same seconds-dropping rule.
+let windowMinutes = 1;
+
+// 24h clock label; seconds are dropped once the labels are minutes apart.
+/** @param {number} ms epoch milliseconds */
+function clockLabel(ms) {
+  /** @type {Intl.DateTimeFormatOptions} */
+  const opts =
+    windowMinutes > X_AXIS_LABELS
+      ? { hour12: false, hour: "2-digit", minute: "2-digit" }
+      : { hour12: false };
+  return new Date(ms).toLocaleTimeString("en-GB", opts);
+}
+
 // The samples currently plotted, kept so the tooltip can read the full
 // timestamp and raw byte value (the chart itself only stores GB to 1dp).
 /** @type {MemSample[]} */
@@ -64,14 +83,14 @@ function externalTooltip({ chart, tooltip }) {
       month: "long",
       year: "numeric",
     }); // e.g. "Saturday 27 June 2026"
-    const timeStr = date.toLocaleTimeString("en-GB", { hour12: false });
+    const timeStr = clockLabel(sample.timestamp);
 
     // Offline buckets (no data recorded in that slot) carry mem_used === null.
     const body =
       sample.mem_used === null
         ? `<div class="tt-mem">Offline</div>`
         : `<div class="tt-mem">Memory Used: ${(sample.mem_used / 1024 ** 3).toFixed(2)} GB</div>` +
-          `<div class="tt-samples">Samples: ${sample.samples}</div>`;
+          `<div class="tt-samples">Averaged from ${sample.samples} ${sample.samples === 1 ? "sample" : "samples"}</div>`;
 
     el.innerHTML =
       `<div class="tt-date">${dateStr}</div>` +
@@ -85,10 +104,6 @@ function externalTooltip({ chart, tooltip }) {
   el.style.left = chart.canvas.offsetLeft + tooltip.caretX + "px";
   el.style.top = chart.canvas.offsetTop + tooltip.caretY + "px";
 }
-
-// How many labels the x-axis shows. Also the minute threshold past which the
-// gap between labels exceeds a minute, so seconds in the time label are dropped.
-const X_AXIS_LABELS = 8;
 
 // Created once; refresh() swaps in new data each tick. Default Chart.js styling.
 const memChart = new Chart(document.getElementById("mem-chart"), {
@@ -124,16 +139,10 @@ const memChart = new Chart(document.getElementById("mem-chart"), {
  */
 function updateChart(stats, minutes) {
   plotted = stats.mem_history; // keep raw samples for the tooltip
+  windowMinutes = minutes; // drives clockLabel's seconds-dropping rule
   const now = Date.now();
-  // Labels are minutes apart once the window exceeds the label count, so the
-  // seconds are just noise — show HH:MM instead of HH:MM:SS.
-  /** @type {Intl.DateTimeFormatOptions} */
-  const timeOpts =
-    minutes > X_AXIS_LABELS
-      ? { hour12: false, hour: "2-digit", minute: "2-digit" }
-      : { hour12: false };
   memChart.data.labels = stats.mem_history.map((s) => [
-    new Date(s.timestamp).toLocaleTimeString([], timeOpts),
+    clockLabel(s.timestamp),
     agoLabel(now - s.timestamp),
   ]);
   // null for offline buckets — Chart.js renders these as a gap in the line.
