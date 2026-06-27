@@ -16,7 +16,11 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   gap: 1rem;
 }
 h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
-.card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem; }
+.card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem;
+  position: relative; }
+/* Lift the chart's card above sibling cards so its tooltip can overflow on top
+   of them instead of being painted under the adjacent Settings card. */
+.mem-card { z-index: 1; }
 .card h2 { font-size: .85rem; font-weight: 500; text-transform: uppercase;
   letter-spacing: .05em; opacity: .7; margin: 0 0 .5rem; }
 .value { font-size: 1.8rem; font-weight: 600; }
@@ -24,3 +28,24 @@ h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
   margin-top: .75rem; overflow: hidden; }
 .bar-fill { height: 100%; width: 0; background: var(--accent);
   border-radius: 4px; transition: width .3s ease; }
+
+/* HTML tooltip for the memory chart, themed to match the cards. Sits above the
+   hovered point; left/top are set inline by the chart's external handler. */
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: none;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  padding: .5rem .7rem;
+  font-size: .8rem;
+  line-height: 1.45;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.chart-tooltip .tt-time { opacity: .6; }
+.chart-tooltip .tt-mem { margin-top: .25rem; font-weight: 600; color: var(--accent); }

@@ -35,7 +35,8 @@ struct MemSample {
 // `(async)` runs this on Tauri's thread pool, not the main/UI thread — the
 // thread::sleep below would otherwise freeze the WebView every poll.
 #[tauri::command(async)]
-fn get_stats(state: tauri::State<'_, AppState>) -> SystemStats {
+fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
+    let minutes = minutes.max(1); // never let 0 produce an empty window
     let mut sys = System::new();
 
     // CPU usage is a rate, not a snapshot: it's the delta between two samples
@@ -77,7 +78,7 @@ fn get_stats(state: tauri::State<'_, AppState>) -> SystemStats {
         params![now_ms, mem_used as i64, mem_total as i64],
     ).unwrap();
 
-    let cutoff = now_ms - 60_000; // last 60s
+    let cutoff = now_ms - (minutes as i64 * 60_000); // last `minutes` minutes
 
     let mut stmt = db
         .prepare("SELECT ts, mem_used FROM mem_samples WHERE ts >= ?1 ORDER BY ts ASC")

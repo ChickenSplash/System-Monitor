@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "checkJs": false,
+    // Elements are static in index.html, so don't flag getElementById as
+    // possibly-null on every line. Turn this on later if you want stricter checks.
+    "strictNullChecks": false
+  },
+  "include": ["**/*.js", "**/*.d.ts"],
+  "exclude": ["node_modules", "chart.umd.js"]
+}
