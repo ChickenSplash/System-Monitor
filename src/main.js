@@ -43,4 +43,4 @@ async function refresh() {
 // Poll once on load, then every second. (The Rust command itself blocks ~200ms
 // to measure the CPU delta, so a 1s interval gives smooth, accurate readings.)
 refresh();
-setInterval(refresh, 500);
+setInterval(refresh, 1000);
