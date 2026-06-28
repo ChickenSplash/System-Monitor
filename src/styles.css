@@ -1,5 +1,5 @@
 /* All app colors live here — one block per theme. Edit these to retheme.
-   The canvas chart can't read CSS vars, so mem-chart.js mirrors --text/--accent/
+   The canvas chart can't read CSS vars, so metric-chart.js mirrors --text/--accent/
    --border onto the Chart.js config; keep those names in sync if you rename. */
 :root {
   --bg: #1a1b26;
@@ -47,9 +47,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
 .card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem;
   position: relative; }
-/* Lift the chart's card above sibling cards so its tooltip can overflow on top
-   of them instead of being painted under the adjacent Settings card. */
-.mem-card { z-index: 1; }
+/* Lift a chart's card above sibling cards so its tooltip can overflow on top
+   of them instead of being painted under an adjacent card. */
+.chart-card { z-index: 1; }
 .card h2 { font-size: .85rem; font-weight: 500; text-transform: uppercase;
   letter-spacing: .05em; opacity: .7; margin: 0 0 .5rem; }
 .value { font-size: 1.8rem; font-weight: 600; }
@@ -78,5 +78,5 @@ h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
 }
 .chart-tooltip .tt-time { opacity: .6; }
 .chart-tooltip .tt-ago { opacity: .6; }
-.chart-tooltip .tt-mem { margin-top: .25rem; font-weight: 600; color: var(--accent); }
+.chart-tooltip .tt-value { margin-top: .25rem; font-weight: 600; color: var(--accent); }
 .chart-tooltip .tt-samples { opacity: .6; }

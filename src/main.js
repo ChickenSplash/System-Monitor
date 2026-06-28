@@ -1,13 +1,31 @@
 // @ts-check
 // Frontend entry point: polls the Rust backend via invoke("get_stats"), feeds
-// the memory chart, and updates the DOM stat readouts. Formatting lives in
-// util.js; the chart lives in mem-chart.js. No bundler here (Tauri serves src/
+// the metric charts, and updates the DOM stat readouts. Formatting lives in
+// util.js; charts live in metric-chart.js. No bundler here (Tauri serves src/
 // raw), so we use the global Tauri API rather than importing it — browsers
 // can't resolve bare module specifiers. Local ES modules import fine by path.
 import { bytesToGB } from "./util.js";
-import { updateChart, applyChartTheme } from "./mem-chart.js";
+import { createMetricChart, applyChartTheme } from "./metric-chart.js";
 
 const { invoke } = window.__TAURI__.core;
+
+// One chart per metric; the shared machinery lives in metric-chart.js. Each only
+// differs in how it pulls its value, its y-axis ceiling, and its tooltip line.
+const memoryChart = createMetricChart({
+  canvasId: "mem-chart",
+  label: "Memory used (GB)",
+  toValue: (s) => (s.mem_used === null ? null : Number(bytesToGB(s.mem_used))),
+  yMax: (stats) => Number(bytesToGB(stats.memory.total)),
+  format: (s) => `Memory Used: ${((s.mem_used ?? 0) / 1024 ** 3).toFixed(2)} GB`,
+});
+
+const cpuChart = createMetricChart({
+  canvasId: "cpu-chart",
+  label: "CPU usage (%)",
+  toValue: (s) => s.cpu_usage, // already a percentage; null = gap
+  yMax: () => 100,
+  format: (s) => `CPU: ${(s.cpu_usage ?? 0).toFixed(1)}%`,
+});
 
 async function refresh() {
   try {
@@ -16,20 +34,23 @@ async function refresh() {
       await invoke("get_stats", { minutes })
     );
 
-    updateChart(stats, minutes);
+    console.log(stats);
 
-    const cpu = stats.cpu_usage.toFixed(1);
+    memoryChart.update(stats, minutes);
+    cpuChart.update(stats, minutes);
+
+    const cpu = stats.cpu.usage.toFixed(1);
     document.getElementById("cpu-usage").textContent = cpu;
     document.getElementById("cpu-bar").style.width = `${cpu}%`;
 
     // null when the hardware exposes no temperature sensor
     document.getElementById("cpu-temp").textContent =
-      stats.cpu_temp !== null ? stats.cpu_temp.toFixed(0) : "N/A";
+      stats.cpu.temp !== null ? stats.cpu.temp.toFixed(0) : "N/A";
 
-    document.getElementById("mem-used").textContent = bytesToGB(stats.mem_used);
-    document.getElementById("mem-total").textContent = bytesToGB(stats.mem_total);
+    document.getElementById("mem-used").textContent = bytesToGB(stats.memory.used);
+    document.getElementById("mem-total").textContent = bytesToGB(stats.memory.total);
     document.getElementById("mem-bar").style.width =
-      `${(stats.mem_used / stats.mem_total) * 100}%`;
+      `${(stats.memory.used / stats.memory.total) * 100}%`;
   } catch (err) {
     console.error("Failed to fetch stats:", err);
   }
