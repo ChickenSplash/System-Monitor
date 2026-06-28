@@ -1,157 +1,13 @@
 // @ts-check
-// Frontend: polls the Rust backend via invoke("get_stats") and renders the
-// result. No bundler here (Tauri serves src/ raw), so we use the global API
-// rather than importing it — browsers can't resolve bare module specifiers.
-// `withGlobalTauri: true` in tauri.conf.json is what exposes window.__TAURI__.
+// Frontend entry point: polls the Rust backend via invoke("get_stats"), feeds
+// the memory chart, and updates the DOM stat readouts. Formatting lives in
+// util.js; the chart lives in mem-chart.js. No bundler here (Tauri serves src/
+// raw), so we use the global Tauri API rather than importing it — browsers
+// can't resolve bare module specifiers. Local ES modules import fine by path.
+import { bytesToGB } from "./util.js";
+import { updateChart, applyChartTheme } from "./mem-chart.js";
+
 const { invoke } = window.__TAURI__.core;
-
-// bytes → gigabytes (1024³), one decimal place.
-/** @param {number} bytes */
-function bytesToGB(bytes) {
-  return (bytes / 1024 ** 3).toFixed(1);
-}
-
-// Elapsed time as a short "x ago" string for the chart's x-axis.
-/** @param {number} ms milliseconds elapsed */
-function agoLabel(ms) {
-  const s = Math.round(ms / 1000);
-  return s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago`;
-}
-
-// Elapsed time as a human-friendly "x minutes ago" string for the tooltip.
-/** @param {number} ms milliseconds elapsed */
-function friendlyAgo(ms) {
-  const mins = Math.round(ms / 60_000);
-  if (mins < 1) return "just now";
-  return mins === 1 ? "1 minute ago" : `${mins} minutes ago`;
-}
-
-// How many labels the x-axis shows. Also the minute threshold past which the
-// gap between labels exceeds a minute, so seconds in the time label are dropped.
-const X_AXIS_LABELS = 8;
-
-// The current history window, kept module-scoped so both the x-axis labels and
-// the tooltip apply the same seconds-dropping rule.
-let windowMinutes = 1;
-
-// 24h clock label; seconds are dropped once the labels are minutes apart.
-/** @param {number} ms epoch milliseconds */
-function clockLabel(ms) {
-  /** @type {Intl.DateTimeFormatOptions} */
-  const opts =
-    windowMinutes > X_AXIS_LABELS
-      ? { hour12: false, hour: "2-digit", minute: "2-digit" }
-      : { hour12: false };
-  return new Date(ms).toLocaleTimeString("en-GB", opts);
-}
-
-// The samples currently plotted, kept so the tooltip can read the full
-// timestamp and raw byte value (the chart itself only stores GB to 1dp).
-/** @type {MemSample[]} */
-let plotted = [];
-
-// Reuse one <div> per chart for the HTML tooltip, creating it on first hover.
-/** @param {any} chart */
-function getOrCreateTooltip(chart) {
-  let el = chart.canvas.parentNode.querySelector(".chart-tooltip");
-  if (!el) {
-    el = document.createElement("div");
-    el.className = "chart-tooltip";
-    chart.canvas.parentNode.appendChild(el);
-  }
-  return el;
-}
-
-// Chart.js external tooltip: render our own DOM element instead of the built-in
-// canvas tooltip, so it can be styled with the app's CSS theme.
-/** @param {{ chart: any, tooltip: any }} context */
-function externalTooltip({ chart, tooltip }) {
-  const el = getOrCreateTooltip(chart);
-
-  if (tooltip.opacity === 0) {
-    el.style.opacity = "0";
-    return;
-  }
-
-  const point = tooltip.dataPoints && tooltip.dataPoints[0];
-  if (point) {
-    const sample = plotted[point.dataIndex];
-    const date = new Date(sample.timestamp);
-    const dateStr = date.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }); // e.g. "Saturday 27 June 2026"
-    const timeStr = clockLabel(sample.timestamp);
-
-    // Offline buckets (no data recorded in that slot) carry mem_used === null.
-    const body =
-      sample.mem_used === null
-        ? `<div class="tt-mem">Offline</div>`
-        : `<div class="tt-mem">Memory Used: ${(sample.mem_used / 1024 ** 3).toFixed(2)} GB</div>` +
-          `<div class="tt-samples">Averaged from ${sample.samples} ${sample.samples === 1 ? "sample" : "samples"}</div>`;
-
-    el.innerHTML =
-      `<div class="tt-date">${dateStr}</div>` +
-      `<div class="tt-time">${timeStr}</div>` +
-      `<div class="tt-ago">${friendlyAgo(Date.now() - sample.timestamp)}</div>` +
-      body;
-  }
-
-  // Position relative to the canvas (its parent card is position: relative).
-  el.style.opacity = "1";
-  el.style.left = chart.canvas.offsetLeft + tooltip.caretX + "px";
-  el.style.top = chart.canvas.offsetTop + tooltip.caretY + "px";
-}
-
-// Created once; refresh() swaps in new data each tick. Default Chart.js styling.
-const memChart = new Chart(document.getElementById("mem-chart"), {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{ label: "Memory used (GB)", data: [] }],
-  },
-  options: {
-    animation: false, // no transitions; the chart re-renders on every poll
-    interaction: { mode: "index", intersect: false }, // hover anywhere on the x
-    plugins: {
-      tooltip: { enabled: false, external: externalTooltip }, // use our DOM one
-    },
-    scales: {
-      x: {
-        ticks: {
-          autoSkip: true,
-          maxTicksLimit: X_AXIS_LABELS, // thin the labels so the axis isn't cramped
-          maxRotation: 0, // keep them horizontal
-        },
-      },
-      y: { min: 0 }, // always scale from 0; max is set to total RAM each tick
-    },
-  },
-});
-
-// Feed a fresh stats reading into the memory chart: y = GB (pinned to total RAM
-// so usage reads to scale), x = two lines, 24h clock time over "x ago".
-/**
- * @param {SystemStats} stats
- * @param {number} minutes the current history window
- */
-function updateChart(stats, minutes) {
-  plotted = stats.mem_history; // keep raw samples for the tooltip
-  windowMinutes = minutes; // drives clockLabel's seconds-dropping rule
-  const now = Date.now();
-  memChart.data.labels = stats.mem_history.map((s) => [
-    clockLabel(s.timestamp),
-    agoLabel(now - s.timestamp),
-  ]);
-  // null for offline buckets — Chart.js renders these as a gap in the line.
-  memChart.data.datasets[0].data = stats.mem_history.map((s) =>
-    s.mem_used === null ? null : Number(bytesToGB(s.mem_used))
-  );
-  memChart.options.scales.y.max = Number(bytesToGB(stats.mem_total));
-  memChart.update();
-}
 
 async function refresh() {
   try {
@@ -203,6 +59,26 @@ function restartTimer() {
 }
 
 rateInput.addEventListener("change", restartTimer);
+
+// Theme: a saved choice of auto/dark/light, persisted in localStorage. "auto"
+// drops the attribute so the OS preference (via the CSS media query) wins; the
+// other two pin data-theme. Chart colors live on the canvas, so recolor after.
+const themeSelect = /** @type {HTMLSelectElement} */ (
+  document.getElementById("theme-select")
+);
+/** @param {string} choice "auto" | "dark" | "light" */
+function applyTheme(choice) {
+  if (choice === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = choice;
+  applyChartTheme();
+}
+const savedTheme = localStorage.getItem("theme") || "auto";
+themeSelect.value = savedTheme;
+themeSelect.addEventListener("change", () => {
+  localStorage.setItem("theme", themeSelect.value);
+  applyTheme(themeSelect.value);
+});
+applyTheme(savedTheme);
 
 refresh();
 restartTimer();

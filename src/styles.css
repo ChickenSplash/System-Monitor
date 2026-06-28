@@ -1,9 +1,38 @@
+/* All app colors live here — one block per theme. Edit these to retheme.
+   The canvas chart can't read CSS vars, so mem-chart.js mirrors --text/--accent/
+   --border onto the Chart.js config; keep those names in sync if you rename. */
 :root {
   --bg: #1a1b26;
   --card: #24283b;
   --text: #c0caf5;
   --accent: #7aa2f7;
+  --bar-track: rgba(255, 255, 255, .08);
+  --border: rgba(255, 255, 255, .1);
+  --shadow: rgba(0, 0, 0, .45);
   font-family: system-ui, sans-serif;
+}
+/* Light theme. Kept in --light-* so both the explicit pick and "Auto" (OS
+   prefers light, no attribute set) can apply it without duplicating values. */
+:root {
+  --light-bg: #f5f6fa;
+  --light-card: #ffffff;
+  --light-text: #1a1b26;
+  --light-accent: #3b5bdb;
+  --light-bar-track: rgba(0, 0, 0, .06);
+  --light-border: rgba(0, 0, 0, .1);
+  --light-shadow: rgba(0, 0, 0, .15);
+}
+:root[data-theme="light"] {
+  --bg: var(--light-bg); --card: var(--light-card); --text: var(--light-text);
+  --accent: var(--light-accent); --bar-track: var(--light-bar-track);
+  --border: var(--light-border); --shadow: var(--light-shadow);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: var(--light-bg); --card: var(--light-card); --text: var(--light-text);
+    --accent: var(--light-accent); --bar-track: var(--light-bar-track);
+    --border: var(--light-border); --shadow: var(--light-shadow);
+  }
 }
 body { margin: 0; background: var(--bg); color: var(--text); }
 .container {
@@ -24,7 +53,7 @@ h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
 .card h2 { font-size: .85rem; font-weight: 500; text-transform: uppercase;
   letter-spacing: .05em; opacity: .7; margin: 0 0 .5rem; }
 .value { font-size: 1.8rem; font-weight: 600; }
-.bar { height: 8px; background: rgba(255,255,255,.08); border-radius: 4px;
+.bar { height: 8px; background: var(--bar-track); border-radius: 4px;
   margin-top: .75rem; overflow: hidden; }
 .bar-fill { height: 100%; width: 0; background: var(--accent);
   border-radius: 4px; transition: width .3s ease; }
@@ -37,13 +66,13 @@ h1 { grid-column: 1 / -1; font-size: 1.4rem; text-align: center; margin: 0; }
   pointer-events: none;
   background: var(--bg);
   color: var(--text);
-  border: 1px solid rgba(255, 255, 255, .1);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: .5rem .7rem;
   font-size: .8rem;
   line-height: 1.45;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  box-shadow: 0 4px 14px var(--shadow);
   opacity: 0;
   transition: opacity .15s ease;
 }
