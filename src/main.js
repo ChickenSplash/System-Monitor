@@ -14,17 +14,19 @@ const { invoke } = window.__TAURI__.core;
 const memoryChart = createMetricChart({
   canvasId: "mem-chart",
   label: "Memory used (GB)",
-  toValue: (s) => (s.mem_used === null ? null : Number(bytesToGB(s.mem_used))),
+  toValue: (sample) =>
+    sample.mem_used === null ? null : Number(bytesToGB(sample.mem_used)),
   yMax: (stats) => Number(bytesToGB(stats.memory.total)),
-  format: (s) => `Memory Used: ${((s.mem_used ?? 0) / 1024 ** 3).toFixed(2)} GB`,
+  format: (sample) =>
+    `Memory Used: ${((sample.mem_used ?? 0) / 1024 ** 3).toFixed(2)} GB`,
 });
 
 const cpuChart = createMetricChart({
   canvasId: "cpu-chart",
   label: "CPU usage (%)",
-  toValue: (s) => s.cpu_usage, // already a percentage; null = gap
+  toValue: (sample) => sample.cpu_usage, // already a percentage; null = gap
   yMax: () => 100,
-  format: (s) => `CPU: ${(s.cpu_usage ?? 0).toFixed(1)}%`,
+  format: (sample) => `CPU: ${(sample.cpu_usage ?? 0).toFixed(1)}%`,
 });
 
 async function refresh() {

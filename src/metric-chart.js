@@ -25,9 +25,9 @@ function getOrCreateTooltip(chart) {
  * @typedef {object} MetricChartConfig
  * @property {string} canvasId  canvas element id
  * @property {string} label     dataset legend label
- * @property {(s: HistorySample) => number | null} toValue  y value to plot; null = gap
- * @property {(stats: SystemStats) => number} yMax          y-axis upper bound, set each tick
- * @property {(s: HistorySample) => string} format          tooltip value line for a populated bucket
+ * @property {(sample: HistorySample) => number | null} toValue  y value to plot; null = gap
+ * @property {(stats: SystemStats) => number} yMax               y-axis upper bound, set each tick
+ * @property {(sample: HistorySample) => string} format          tooltip value line for a populated bucket
  */
 
 /** @param {MetricChartConfig} config */
@@ -113,9 +113,9 @@ export function createMetricChart({ canvasId, label, toValue, yMax, format }) {
       plotted = stats.history; // keep raw samples for the tooltip
       windowMinutes = minutes; // drives clockLabel's seconds-dropping rule
       const now = Date.now();
-      chart.data.labels = stats.history.map((s) => [
-        clockLabel(s.timestamp, minutes),
-        friendlyAgo(now - s.timestamp),
+      chart.data.labels = stats.history.map((sample) => [
+        clockLabel(sample.timestamp, minutes),
+        friendlyAgo(now - sample.timestamp),
       ]);
       // null entries render as gaps in the line (offline buckets, absent sensors).
       chart.data.datasets[0].data = stats.history.map(toValue);
