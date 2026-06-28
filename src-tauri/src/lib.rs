@@ -112,7 +112,10 @@ fn get_stats(minutes: u64, state: tauri::State<'_, AppState>) -> SystemStats {
     // Walk every bucket across the window, not just the populated ones, so a
     // window wider than the recorded data still fills all the columns. Empty
     // buckets become "offline" gaps (mem_used = None) instead of being dropped.
-    let mem_history: Vec<MemSample> = (cutoff / bucket_ms..=now_ms / bucket_ms)
+    // Exactly MAX_POINTS buckets ending at the current one. Flooring cutoff and
+    // now independently over an inclusive range would span MAX_POINTS + 1 indices.
+    let newest = now_ms / bucket_ms;
+    let mem_history: Vec<MemSample> = (newest - MAX_POINTS + 1..=newest)
         .map(|bucket| match buckets.get(&bucket) {
             Some(&(timestamp, mem, count)) => MemSample {
                 timestamp,
